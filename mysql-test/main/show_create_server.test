@@ -1,0 +1,6 @@
+--echo #
+--echo # MDEV-15696 SERVER: SHOW CREATE SERVER
+--echo #
+
+CREATE SERVER IF NOT EXISTS server1 FOREIGN DATA WRAPPER mysql OPTIONS (USER 'user1', HOST 'localhost', DATABASE 'test0');
+SHOW CREATE SERVER server1;

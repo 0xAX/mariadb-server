@@ -3763,6 +3763,7 @@ SHOW_VAR com_status_vars[]= {
   {"show_create_proc",     STMT_STATUS(SQLCOM_SHOW_CREATE_PROC)},
   {"show_create_table",    STMT_STATUS(SQLCOM_SHOW_CREATE)},
   {"show_create_trigger",  STMT_STATUS(SQLCOM_SHOW_CREATE_TRIGGER)},
+  {"show_create_server",   STMT_STATUS(SQLCOM_SHOW_CREATE_SERVER)},
   {"show_create_user",     STMT_STATUS(SQLCOM_SHOW_CREATE_USER)},
   {"show_databases",       STMT_STATUS(SQLCOM_SHOW_DATABASES)},
   {"show_engine_logs",     STMT_STATUS(SQLCOM_SHOW_ENGINE_LOGS)},

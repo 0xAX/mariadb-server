@@ -14085,6 +14085,15 @@ show_param:
               MYSQL_YYABORT;
             lex->table_type= TABLE_TYPE_SEQUENCE;
           }
+        | CREATE SERVER_SYM opt_if_not_exists ident
+          {
+            Lex->set_command(SQLCOM_SHOW_CREATE_SERVER, $3);
+            Lex->name= $4;
+
+            //LEX *lex= Lex;
+            //lex->sql_command= SQLCOM_SHOW_CREATE_SERVER;
+            //Lex->name= $4;
+          }
         | MASTER_SYM STATUS_SYM
           {
             Lex->sql_command = SQLCOM_SHOW_MASTER_STAT;

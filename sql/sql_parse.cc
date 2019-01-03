@@ -683,6 +683,7 @@ void init_update_queries(void)
   sql_command_flags[SQLCOM_SHOW_FUNC_CODE]=   CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_PACKAGE_BODY_CODE]= CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_CREATE_EVENT]= CF_STATUS_COMMAND;
+  sql_command_flags[SQLCOM_SHOW_CREATE_SERVER]= CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_PROFILES]=    CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_PROFILE]=     CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_BINLOG_BASE64_EVENT]= CF_STATUS_COMMAND | CF_CAN_GENERATE_ROW_EVENTS;
@@ -5293,6 +5294,15 @@ end_with_restore_list:
       break;
     WSREP_TO_ISOLATION_BEGIN(db->str, NULL, NULL);
     res= mysql_alter_db(thd, db, &lex->create_info);
+    break;
+  }
+  case SQLCOM_SHOW_CREATE_SERVER:
+  {
+    DBUG_PRINT("info", ("case SQLCOM_SHOW_CREATE_SERVER"));
+
+    if (check_global_access(thd, SUPER_ACL))
+      break;
+    res= show_create_server(thd, &lex->name, lex->create_info);
     break;
   }
   case SQLCOM_SHOW_CREATE_DB:

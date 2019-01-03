@@ -45,6 +45,7 @@
 #include "sp.h"
 #include "transaction.h"
 #include "lock.h"                               // MYSQL_LOCK_IGNORE_TIMEOUT
+#include "sql_show.h" // append_identifier
 
 /*
   We only use 1 mutex to guard the data structures - THR_LOCK_servers.
@@ -974,6 +975,139 @@ delete_server_record(TABLE *table, LEX_CSTRING *name)
   DBUG_RETURN(error);
 }
 
+/* TODO comments */
+static void mysqld_show_create_server_get_fields(THD *thd, List<Item> *field_list)
+{
+  MEM_ROOT *mem_root= thd->mem_root;
+  field_list->push_back(new (mem_root)
+                        Item_empty_string(thd, "Server", NAME_CHAR_LEN),
+                        mem_root);
+  field_list->push_back(new (mem_root)
+                        Item_empty_string(thd, "Create Server", 1024),
+                        mem_root);
+}
+
+/* TODO comments */
+static void fill_create_server_info(FOREIGN_SERVER *server, String *buffer)
+{
+    buffer->append(STRING_WITH_LEN(" FOREIGN DATA WRAPPER mysql OPTIONS("));
+
+    if (server->host && server->host[0])
+    {
+            buffer->append(STRING_WITH_LEN("HOST "));
+            buffer->append(server->host);
+    }
+
+    if (server->socket && server->socket[0])
+    {
+            buffer->append(STRING_WITH_LEN(", "));
+            buffer->append(STRING_WITH_LEN("SOCKET "));
+            buffer->append(server->socket);
+    }
+
+    if (server->socket && server->db[0])
+    {
+            buffer->append(STRING_WITH_LEN(", "));
+            buffer->append(STRING_WITH_LEN("DATABASE "));
+            buffer->append(server->db);
+    }
+
+    if (server->username && server->username[0])
+    {
+            buffer->append(STRING_WITH_LEN(", "));
+            buffer->append(STRING_WITH_LEN("USER "));
+            buffer->append(server->username);
+    }
+
+    // TODO check ACLs + make all ifs as macro
+    if (server->socket && server->password[0])
+    {
+            buffer->append(STRING_WITH_LEN(", "));
+            buffer->append(STRING_WITH_LEN("PASSWORD "));
+            buffer->append(server->password);
+    }
+
+    if (server->socket && server->owner[0])
+    {
+            buffer->append(STRING_WITH_LEN(", "));
+            buffer->append(STRING_WITH_LEN("OWNER "));
+            buffer->append(server->owner);
+    }
+
+    // TODO this does not work
+    //if (server->port)
+    //{
+    //        buffer->append(STRING_WITH_LEN(", "));
+    //        buffer->append(STRING_WITH_LEN("PORT "));
+    //        buffer->append(server->sport);
+    //}
+
+    buffer->append(STRING_WITH_LEN(" )"));
+}
+
+/*
+
+  SYNOPSIS
+    show_create_server()
+      THD *thd
+      LEX_CSTRING *server_name
+
+  NOTES
+
+  RETURN VALUE
+    0 - no error
+
+ */
+int show_create_server(THD *thd, LEX_CSTRING *server_name, const DDL_options_st &options)
+{
+  char buff[2048];
+  String result(buff, 2048, system_charset_info);
+  Protocol *protocol= thd->protocol;
+  List<Item> field_list;
+  FOREIGN_SERVER *server;
+
+  DBUG_ENTER("mysql_show_create_server");
+
+  result.length(0);
+  result.append(STRING_WITH_LEN("CREATE SERVER "));
+  if (options.if_not_exists())
+    result.append(STRING_WITH_LEN("/* IF NOT EXISTS */ "));
+  append_identifier(thd, &result, server_name);
+
+  if (!(server= (FOREIGN_SERVER *) my_hash_search(&servers_cache,
+                                                  (uchar*) server_name->str,
+                                                  server_name->length)))
+  {
+    DBUG_PRINT("info", ("server_name %s length %u not found!",
+                        server_name->str, (unsigned) server_name->length));
+    server= (FOREIGN_SERVER *) NULL;
+  }
+
+  if (server)
+  {
+    fill_create_server_info(server, &result);
+
+    mysqld_show_create_server_get_fields(thd, &field_list);
+
+    protocol->send_result_set_metadata(&field_list,
+                                       Protocol::SEND_NUM_ROWS |
+                                       Protocol::SEND_EOF);
+  
+    protocol->prepare_for_resend();
+    protocol->store(server_name->str, server_name->length, system_charset_info);
+    protocol->store(result.ptr(), result.length(), result.charset());
+    if (protocol->write())
+    {
+      DBUG_RETURN(1);
+    }
+    my_eof(thd);
+    DBUG_RETURN(0);
+  }
+
+  my_error(ER_FOREIGN_SERVER_DOESNT_EXIST, MYF(0), server_name->str);
+  DBUG_RETURN(1);          
+}
+
 /*
 
   SYNOPSIS
@@ -1292,7 +1426,6 @@ static FOREIGN_SERVER *clone_server(MEM_ROOT *mem, const FOREIGN_SERVER *server,
 
  DBUG_RETURN(buffer);
 }
-
 
 /*
 
